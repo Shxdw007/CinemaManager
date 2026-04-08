@@ -1,0 +1,6 @@
+@CinemaManager.API.Models_HostAddress = http://localhost:5248
+
+GET {{CinemaManager.API.Models_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
