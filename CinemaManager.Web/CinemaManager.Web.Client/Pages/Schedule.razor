@@ -1,0 +1,70 @@
+@page "/schedule"
+@inject ApiService Api
+
+<PageTitle>Расписание - Звездный</PageTitle>
+
+<div class="cm-container" style="padding-top:40px">
+    <h2>Расписание сеансов</h2>
+
+    @if (_isLoading)
+    {
+        <div class="cm-loading" style="padding-left:0">Загрузка…</div>
+    }
+    else if (_errorMessage is not null)
+    {
+        <div class="cm-alert">
+            <div><strong>Не удалось загрузить расписание.</strong></div>
+            <div class="cm-muted">@_errorMessage</div>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in _sessions
+            .OrderBy(s => s.Movie.Title)
+            .ThenBy(s => s.StartTime)
+            .GroupBy(s => s.MovieId))
+        {
+            var first = group.First();
+            <div style="margin-top:20px; background: rgba(20, 20, 35, 0.8); padding:20px; border-radius:12px; border: 1px solid #222;">
+                <div style="display:flex; gap:30px; flex-wrap:wrap;">
+                    <div style="width:220px; flex:0 0 auto;">
+                        <h3 style="margin:0 0 5px 0; font-size:18px">@first.Movie.Title</h3>
+                        <p class="cm-muted" style="margin:0">@first.Movie.AgeRating • @first.Movie.Duration мин</p>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:15px; align-items:center;">
+                        @foreach (var s in group)
+                        {
+                            <NavLink class="cm-hall-btn" href="@($"/booking/{s.Id}")">
+                                <div style="font-size:18px; font-weight:800">@s.StartTime:HH:mm</div>
+                                <div class="cm-muted" style="font-size:12px">@s.Hall.Name • @s.Hall.Type</div>
+                            </NavLink>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private List<SessionDto> _sessions = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _sessions = (await Api.GetSessionsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}
+

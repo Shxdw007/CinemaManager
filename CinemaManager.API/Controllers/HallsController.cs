@@ -19,10 +19,12 @@ public sealed class HallsController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Hall>>> Get()
         => Ok(await _db.Halls.AsNoTracking().ToListAsync());
 
     [HttpGet("{id:int}")]
+    [AllowAnonymous]
     public async Task<ActionResult<Hall>> Get(int id)
     {
         var hall = await _db.Halls.AsNoTracking().FirstOrDefaultAsync(h => h.Id == id);

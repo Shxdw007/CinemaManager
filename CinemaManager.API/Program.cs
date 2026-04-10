@@ -6,14 +6,21 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Добавляем контроллеры
 builder.Services.AddControllers();
 
-// Добавляем генератор Swagger
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazor", policy =>
+    {
+        policy.AllowAnyOrigin() 
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Подключаем базу данных PostgreSQL
 builder.Services.AddDbContext<CinemaDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -47,7 +54,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Включаем красивый интерфейс Swagger (только для режима разработки)
+// Включаем  Swagger (только для режима разработки)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -56,6 +63,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+//  ВКЛЮЧАЕМ CORS (строго до авторизации) 
+app.UseCors("AllowBlazor");
+
+
+// Включаем аутентификацию (проверку JWT токена) 
 app.UseAuthentication();
 app.UseAuthorization();
 

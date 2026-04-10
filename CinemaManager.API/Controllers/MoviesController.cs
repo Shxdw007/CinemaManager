@@ -25,6 +25,7 @@ namespace CinemaManager.API.Controllers
         // GET: api/movies
         // Получить список всех фильмов
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Movie>>> GetMovies()
         {
             return await _context.Movies.ToListAsync();
@@ -33,6 +34,7 @@ namespace CinemaManager.API.Controllers
         // GET: api/movies/5
         // Получить один конкретный фильм по его ID
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Movie>> GetMovie(int id)
         {
             var movie = await _context.Movies.FindAsync(id);

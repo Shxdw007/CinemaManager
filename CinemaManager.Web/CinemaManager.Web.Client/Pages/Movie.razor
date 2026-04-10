@@ -1,0 +1,132 @@
+@page "/movie/{Id:int}"
+@inject ApiService Api
+
+<PageTitle>Фильм - Звездный</PageTitle>
+
+@if (_isLoading)
+{
+    <div class="cm-loading">Загрузка…</div>
+}
+else if (_errorMessage is not null)
+{
+    <div class="cm-container">
+        <div class="cm-alert">
+            <div><strong>Не удалось загрузить фильм.</strong></div>
+            <div class="cm-muted">@_errorMessage</div>
+        </div>
+    </div>
+}
+else if (_movie is null)
+{
+    <div class="cm-container">
+        <div class="cm-alert">
+            <strong>Фильм не найден.</strong>
+        </div>
+    </div>
+}
+else
+{
+    <div class="cm-movie-container">
+        <div class="cm-poster-wrapper cm-poster-large">
+            @if (!string.IsNullOrWhiteSpace(_movie.PosterData))
+            {
+                <img class="cm-poster-img" src="@ToPosterSrc(_movie.PosterData)" alt="@_movie.Title" />
+            }
+            else
+            {
+                <h2>Постер</h2>
+            }
+        </div>
+
+        <div class="cm-movie-details">
+            <h1>@_movie.Title</h1>
+
+            <div class="cm-tags">
+                @if (!string.IsNullOrWhiteSpace(_movie.Genre))
+                {
+                    <span class="cm-tag">@_movie.Genre</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(_movie.AgeRating))
+                {
+                    <span class="cm-tag">@_movie.AgeRating</span>
+                }
+                @if (_movie.Duration > 0)
+                {
+                    <span class="cm-tag">@_movie.Duration мин</span>
+                }
+            </div>
+
+            <p class="cm-description">@_movie.Description</p>
+
+            <div class="cm-booking-section">
+                <h3>Выберите сеанс:</h3>
+
+                @if (_sessions.Count == 0)
+                {
+                    <div class="cm-muted">Пока нет сеансов для этого фильма.</div>
+                }
+                else
+                {
+                    <div class="cm-hall-selector">
+                        @foreach (var s in _sessions.OrderBy(s => s.StartTime))
+                        {
+                            <NavLink class="@GetSessionButtonCss(s)" href="@($"/booking/{s.Id}")">
+                                @($"{s.Hall.Name} ({s.Hall.Type}) — {s.StartTime:HH:mm}")
+                            </NavLink>
+                        }
+                    </div>
+                    <div class="cm-muted">Нажмите на сеанс, чтобы перейти к выбору мест.</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private MovieDto? _movie;
+    private List<SessionDto> _sessions = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        _movie = null;
+        _sessions = [];
+
+        try
+        {
+            _movie = await Api.GetMovieAsync(Id);
+            var sessions = await Api.GetSessionsAsync();
+            _sessions = sessions.Where(s => s.MovieId == Id).ToList();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetSessionButtonCss(SessionDto s)
+        => s.Hall.Type.Contains("vip", StringComparison.OrdinalIgnoreCase)
+            ? "cm-hall-btn"
+            : "cm-hall-btn";
+
+    private static string ToPosterSrc(string posterData)
+    {
+        if (posterData.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return posterData;
+
+        if (posterData.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            return posterData;
+
+        return $"data:image/*;base64,{posterData}";
+    }
+}
+

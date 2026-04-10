@@ -20,6 +20,7 @@ public sealed class SessionsController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Session>>> Get()
         => Ok(await _db.Sessions
             .AsNoTracking()
@@ -28,6 +29,7 @@ public sealed class SessionsController : ControllerBase
             .ToListAsync());
 
     [HttpGet("{id:int}")]
+    [AllowAnonymous]
     public async Task<ActionResult<Session>> Get(int id)
     {
         var session = await _db.Sessions

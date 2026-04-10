@@ -1,0 +1,86 @@
+﻿@page "/"
+
+@inject ApiService Api
+
+<PageTitle>Афиша - Звездный</PageTitle>
+
+<div class="cm-hero">
+    <h1>Смотри на большом экране</h1>
+    <div class="cm-filters">
+        <button class="cm-filter-btn active" type="button">В прокате</button>
+        <button class="cm-filter-btn" type="button">Скоро</button>
+        <button class="cm-filter-btn" type="button">Фантастика</button>
+        <button class="cm-filter-btn" type="button">Боевики</button>
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <div class="cm-loading">Загрузка фильмов…</div>
+}
+else if (_errorMessage is not null)
+{
+    <div class="cm-container">
+        <div class="cm-alert">
+            <div><strong>Не удалось загрузить фильмы.</strong></div>
+            <div class="cm-muted">@_errorMessage</div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="cm-movie-grid">
+        @foreach (var movie in _movies)
+        {
+            <div class="cm-movie-card">
+                <NavLink href="@($"/movie/{movie.Id}")" style="text-decoration:none;color:inherit">
+                    <div class="cm-poster-wrapper">
+                        @if (!string.IsNullOrWhiteSpace(movie.PosterData))
+                        {
+                            <img class="cm-poster-img" src="@ToPosterSrc(movie.PosterData)" alt="@movie.Title" />
+                        }
+                        else
+                        {
+                            <h2>Постер</h2>
+                        }
+                    </div>
+                    <h3>@movie.Title</h3>
+                    <p>@movie.Genre • @movie.AgeRating</p>
+                </NavLink>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private IReadOnlyList<MovieDto> _movies = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _movies = await Api.GetMoviesAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string ToPosterSrc(string posterData)
+    {
+        if (posterData.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return posterData;
+
+        if (posterData.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            return posterData;
+
+        return $"data:image/*;base64,{posterData}";
+    }
+}

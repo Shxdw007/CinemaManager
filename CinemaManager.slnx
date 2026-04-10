@@ -1,4 +1,6 @@
 <Solution>
   <Project Path="CinemaManager.API/CinemaManager.API.csproj" Id="31d03a49-0197-41d4-981e-cd2674cf93d0" />
+  <Project Path="CinemaManager.Web/CinemaManager.Web.Client/CinemaManager.Web.Client.csproj" Id="f3211a46-6e73-4e42-acae-5751cbc048c0" />
+  <Project Path="CinemaManager.Web/CinemaManager.Web/CinemaManager.Web.csproj" Id="72676224-ff73-4797-9049-0ed2f0d775e3" />
   <Project Path="CinemaManager/CinemaManager.csproj" />
 </Solution>

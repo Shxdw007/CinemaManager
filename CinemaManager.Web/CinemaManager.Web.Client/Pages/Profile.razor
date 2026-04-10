@@ -1,0 +1,216 @@
+@page "/profile"
+
+<PageTitle>Личный кабинет - Звездный</PageTitle>
+
+@if (!isLoggedIn)
+{
+    <div class="cm-auth-wrap">
+        <div class="cm-login-container">
+            <div class="cm-logo" style="margin-bottom:30px">ЗВЕЗДНЫЙ ✦</div>
+
+            <div class="cm-input-group">
+                <label for="email">E-mail</label>
+                <input id="email" class="cm-input" type="email" placeholder="example@mail.ru" @bind="email" />
+            </div>
+
+            <div class="cm-input-group">
+                <label for="password">Пароль</label>
+                <input id="password" class="cm-input" type="password" placeholder="••••••••" @bind="password" />
+            </div>
+
+            <button class="cm-btn" type="button" @onclick="Login">
+                Войти в систему
+            </button>
+
+            <div class="cm-muted" style="margin-top:18px; font-size:14px">
+                Нет аккаунта?
+                <button type="button" class="cm-btn-secondary" style="margin-left:8px" @onclick="Register">
+                    Зарегистрироваться
+                </button>
+            </div>
+
+            @if (authMessage is not null)
+            {
+                <div class="cm-alert" style="margin-top:16px; text-align:left">
+                    <strong>@authMessage</strong>
+                </div>
+            }
+
+            <div class="cm-muted" style="margin-top:16px; font-size:12px; text-align:left">
+                Демонстрационный режим: авторизация пока локальная (без API).
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="cm-profile-container">
+        <div class="cm-profile-header">
+            <div class="cm-avatar">@userInitial</div>
+            <div class="cm-user-info">
+                <h2>@fullName</h2>
+                <p>@email • @phone</p>
+            </div>
+            <button type="button" class="cm-logout-btn" @onclick="Logout">Выйти</button>
+        </div>
+
+        <div class="cm-tabs">
+            <button type="button" class="cm-tab @(activeTab is Tab.Active ? "active" : "")" @onclick="() => activeTab = Tab.Active">
+                Активные билеты (@activeTickets.Count)
+            </button>
+            <button type="button" class="cm-tab @(activeTab is Tab.History ? "active" : "")" @onclick="() => activeTab = Tab.History">
+                История покупок
+            </button>
+        </div>
+
+        @foreach (var t in (activeTab is Tab.Active ? activeTickets : historyTickets))
+        {
+            <div class="cm-ticket">
+                <div class="cm-ticket-poster">Постер</div>
+                <div class="cm-ticket-details">
+                    <h3>@t.MovieTitle</h3>
+                    <p style="margin:0; color:#aaa">@t.HallName • Формат @t.Format</p>
+
+                    <div class="cm-ticket-meta">
+                        <div class="cm-meta-item"><span>Дата</span><strong>@t.Date</strong></div>
+                        <div class="cm-meta-item"><span>Время</span><strong>@t.Time</strong></div>
+                        <div class="cm-meta-item"><span>Ряд</span><strong>@t.Row</strong></div>
+                        <div class="cm-meta-item"><span>Место</span><strong>@t.Seat</strong></div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(t.Note))
+                    {
+                        <p style="margin: 15px 0 0 0; font-size: 12px; color: #FFD700;">@t.Note</p>
+                    }
+                </div>
+
+                <div class="cm-ticket-qr">
+                    <div class="cm-qr-placeholder" aria-hidden="true">
+                        @foreach (var dot in t.QrMask)
+                        {
+                            <div class="cm-qr-dot" style="@(dot ? "" : "background:transparent")"></div>
+                        }
+                    </div>
+                    <div class="cm-ticket-status">@t.Status</div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool isLoggedIn = false;
+
+    private string email = "ivanov@example.com";
+    private string password = "password123";
+    private string? authMessage;
+
+    private readonly string fullName = "Иванов Иван";
+    private readonly string phone = "+7 (999) 123-45-67";
+    private string userInitial => string.IsNullOrWhiteSpace(fullName) ? "?" : fullName.Trim()[0].ToString();
+
+    private Tab activeTab = Tab.Active;
+
+    private readonly List<TicketVm> activeTickets =
+    [
+        TicketVm.DemoActive(),
+    ];
+
+    private readonly List<TicketVm> historyTickets =
+    [
+        TicketVm.DemoHistory1(),
+        TicketVm.DemoHistory2(),
+    ];
+
+    private void Login()
+    {
+        authMessage = null;
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            authMessage = "Заполните E-mail и пароль.";
+            return;
+        }
+
+        isLoggedIn = true;
+    }
+
+    private void Register()
+    {
+        authMessage = "Регистрация будет подключена позже. Для демо нажмите «Войти в систему».";
+    }
+
+    private void Logout()
+    {
+        isLoggedIn = false;
+        password = "";
+        authMessage = null;
+        activeTab = Tab.Active;
+    }
+
+    private enum Tab
+    {
+        Active,
+        History
+    }
+
+    private sealed record TicketVm(
+        string MovieTitle,
+        string HallName,
+        string Format,
+        string Date,
+        string Time,
+        int Row,
+        int Seat,
+        string Status,
+        string? Note,
+        bool[] QrMask)
+    {
+        public static TicketVm DemoActive()
+            => new(
+                MovieTitle: "Дюна: Часть вторая",
+                HallName: "VIP Зал",
+                Format: "3D",
+                Date: "14 Марта",
+                Time: "20:00",
+                Row: 5,
+                Seat: 12,
+                Status: "Оплачен",
+                Note: "✦ Оплачены снеки: Попкорн, Кола",
+                QrMask: DemoQrMask(seed: 42));
+
+        public static TicketVm DemoHistory1()
+            => new(
+                MovieTitle: "Интерстеллар",
+                HallName: "Зал 1",
+                Format: "2D",
+                Date: "02 Марта",
+                Time: "18:30",
+                Row: 3,
+                Seat: 7,
+                Status: "Посещён",
+                Note: null,
+                QrMask: DemoQrMask(seed: 7));
+
+        public static TicketVm DemoHistory2()
+            => new(
+                MovieTitle: "Дэдпул и Росомаха",
+                HallName: "Зал 2",
+                Format: "3D",
+                Date: "27 Февраля",
+                Time: "21:15",
+                Row: 8,
+                Seat: 4,
+                Status: "Посещён",
+                Note: null,
+                QrMask: DemoQrMask(seed: 13));
+
+        private static bool[] DemoQrMask(int seed)
+        {
+            var rng = new Random(seed);
+            var mask = new bool[16];
+            for (var i = 0; i < mask.Length; i++)
+                mask[i] = rng.NextDouble() > 0.35;
+            return mask;
+        }
+    }
+}

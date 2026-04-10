@@ -1,0 +1,257 @@
+@page "/booking/{SessionId:int}"
+@inject ApiService Api
+
+<PageTitle>Покупка билета - Звездный</PageTitle>
+
+@if (_isLoading)
+{
+    <div class="cm-loading">Загрузка…</div>
+}
+else if (_errorMessage is not null)
+{
+    <div class="cm-container">
+        <div class="cm-alert">
+            <div><strong>Не удалось загрузить сеанс.</strong></div>
+            <div class="cm-muted">@_errorMessage</div>
+        </div>
+    </div>
+}
+else if (_session is null)
+{
+    <div class="cm-container">
+        <div class="cm-alert"><strong>Сеанс не найден.</strong></div>
+    </div>
+}
+else
+{
+    <div class="cm-movie-container">
+        <div class="cm-poster-wrapper cm-poster-large">
+            @if (!string.IsNullOrWhiteSpace(_session.Movie.PosterData))
+            {
+                <img class="cm-poster-img" src="@ToPosterSrc(_session.Movie.PosterData)" alt="@_session.Movie.Title" />
+            }
+            else
+            {
+                <h2>Постер</h2>
+            }
+        </div>
+
+        <div class="cm-movie-details">
+            <h1>@_session.Movie.Title</h1>
+            <div class="cm-tags">
+                <span class="cm-tag">@_session.Hall.Name</span>
+                <span class="cm-tag">@_session.Hall.Type</span>
+                <span class="cm-tag">@_session.StartTime:dd.MM.yyyy HH:mm</span>
+            </div>
+
+            <div class="cm-booking-section">
+                <h3>Выбор мест</h3>
+
+                <div class="cm-screen">ЭКРАН</div>
+
+                <div class="cm-seats-grid">
+                    @for (var row = 1; row <= _rows; row++)
+                    {
+                        <div class="cm-row">
+                            @for (var seat = 1; seat <= _seatsPerRow; seat++)
+                            {
+                                var key = new SeatKey(row, seat);
+                                var occupied = IsOccupied(key);
+                                var selected = _selected.Contains(key);
+                                var css = $"cm-seat{(occupied ? " occupied" : "")}{(selected ? " selected" : "")}";
+
+                                <button type="button"
+                                        class="@css"
+                                        disabled="@occupied"
+                                        title="@($"{row} ряд, {seat} место")"
+                                        @onclick="() => ToggleSeat(key)">
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="@GetVipCss()">
+                    <h4>✦ VIP Привилегия: Заказ к месту</h4>
+                    <p class="cm-muted" style="font-size:14px">Выберите напитки и закуски, мы принесем их прямо к вашему креслу.</p>
+                    <div class="cm-snack-options">
+                        @foreach (var snack in _snacks)
+                        {
+                            var selected = _selectedSnacks.Contains(snack.Id);
+                            <div class="cm-snack-card @(selected ? "selected" : "")"
+                                 @onclick="() => ToggleSnack(snack.Id)">
+                                @snack.Title<br />
+                                +@snack.Price ₽
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="cm-checkout-panel">
+                    <div class="cm-total-price">Итого: @TotalPrice ₽</div>
+                    <button type="button" class="cm-buy-btn" disabled="@(_selected.Count == 0)" @onclick="BuyAsync">
+                        Купить билет
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (_isSuccessModalOpen && _session is not null)
+{
+    <div class="cm-modal-backdrop" @onclick="CloseModal">
+        <div class="cm-modal" @onclick:stopPropagation="true">
+            <h3>Оплата прошла успешно</h3>
+            <div class="cm-muted">
+                @_session.Movie.Title • @_session.Hall.Name (@_session.Hall.Type) • @_session.StartTime:dd.MM.yyyy HH:mm
+            </div>
+
+            <div style="margin-top:14px">
+                <div><strong>Места:</strong> @string.Join(", ", _lastPurchasedSeats.Select(s => $"{s.Row}-{s.Seat}"))</div>
+                <div><strong>Сумма:</strong> @LastPurchaseTotal ₽</div>
+            </div>
+
+            <div class="cm-alert" style="margin-top:16px">
+                Билеты добавлены в «Личный кабинет». (Пока демо, без сохранения на сервере.)
+            </div>
+
+            <div class="cm-modal-actions">
+                <NavLink class="cm-btn-secondary" href="/profile" @onclick="CloseModal">В личный кабинет</NavLink>
+                <button type="button" class="cm-buy-btn" style="width:auto" @onclick="CloseModal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private bool _isSuccessModalOpen;
+    private decimal LastPurchaseTotal;
+    private SeatKey[] _lastPurchasedSeats = [];
+
+    private SessionDto? _session;
+
+    private int _rows = 6;
+    private int _seatsPerRow = 10;
+
+    private readonly HashSet<SeatKey> _selected = [];
+    private readonly HashSet<SeatKey> _purchasedOccupied = [];
+    private readonly HashSet<string> _selectedSnacks = [];
+
+    private readonly Snack[] _snacks =
+    [
+        new("popcorn", "🍿 Попкорн", 350),
+        new("cola", "🥤 Кола", 150),
+        new("nachos", "🥨 Начос", 250),
+    ];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        _isSuccessModalOpen = false;
+        LastPurchaseTotal = 0;
+        _lastPurchasedSeats = [];
+        _selected.Clear();
+        _purchasedOccupied.Clear();
+        _selectedSnacks.Clear();
+
+        try
+        {
+            _session = await Api.GetSessionAsync(SessionId);
+
+            if (_session is not null)
+            {
+                _rows = _session.Hall.RowsCount > 0 ? _session.Hall.RowsCount : _rows;
+                _seatsPerRow = _session.Hall.SeatsPerRow > 0 ? _session.Hall.SeatsPerRow : _seatsPerRow;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleSeat(SeatKey key)
+    {
+        if (_isSuccessModalOpen) return;
+        if (!_selected.Add(key))
+            _selected.Remove(key);
+    }
+
+    private bool IsOccupied(SeatKey key)
+    {
+        if (_purchasedOccupied.Contains(key)) return true;
+
+        // Пока нет Tickets API — делаем детерминированные "занятые" места на базе sessionId.
+        var hash = HashCode.Combine(SessionId, key.Row, key.Seat);
+        return Math.Abs(hash) % 11 == 0;
+    }
+
+    private void ToggleSnack(string id)
+    {
+        if (!_selectedSnacks.Add(id))
+            _selectedSnacks.Remove(id);
+    }
+
+    private string GetVipCss()
+        => _session?.Hall.Type.Contains("vip", StringComparison.OrdinalIgnoreCase) == true
+            ? "cm-vip-snacks active"
+            : "cm-vip-snacks";
+
+    private decimal TotalPrice
+    {
+        get
+        {
+            if (_session is null) return 0;
+            var baseTotal = _session.TicketPrice * _selected.Count;
+            var snacksTotal = _session.Hall.Type.Contains("vip", StringComparison.OrdinalIgnoreCase)
+                ? _snacks.Where(s => _selectedSnacks.Contains(s.Id)).Sum(s => (decimal)s.Price)
+                : 0;
+            return baseTotal + snacksTotal;
+        }
+    }
+
+    private Task BuyAsync()
+    {
+        if (_selected.Count == 0) return Task.CompletedTask;
+
+        LastPurchaseTotal = TotalPrice;
+        _lastPurchasedSeats = _selected.OrderBy(s => s.Row).ThenBy(s => s.Seat).ToArray();
+
+        foreach (var s in _selected)
+            _purchasedOccupied.Add(s);
+
+        _selected.Clear();
+        _selectedSnacks.Clear();
+        _isSuccessModalOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private void CloseModal()
+        => _isSuccessModalOpen = false;
+
+    private static string ToPosterSrc(string posterData)
+    {
+        if (posterData.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return posterData;
+
+        if (posterData.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            return posterData;
+
+        return $"data:image/*;base64,{posterData}";
+    }
+
+    private readonly record struct SeatKey(int Row, int Seat);
+    private sealed record Snack(string Id, string Title, int Price);
+}
+
