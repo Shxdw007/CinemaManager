@@ -55,5 +55,7 @@
 Разработано командой «Три идиота» (г. Иркутск, 2026 г.):
 
 Осипов Данил (Shxdw) — Lead Developer / Backend Architect
+
 Куйда Елизавета — UI/UX Designer
+
 Лисовский Данил — Assistant Lead Developer
