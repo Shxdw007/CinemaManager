@@ -49,6 +49,7 @@
    Update-Database
 4. Запустите проект CinemaManager.API. В открывшемся Swagger выполните POST /api/users/seed-admin для создания дефолтного аккаунта администратора.
 5. Настройте мульти-запуск (Multiple Startup Projects) в Visual Studio для проектов CinemaManager.API и CinemaManager.Web.
+   
 6.Десктопный WPF-клиент запускается отдельно для входа под учетной записью администратора.
 
 👥 Команда разработки
