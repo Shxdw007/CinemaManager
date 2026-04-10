@@ -10,11 +10,12 @@ namespace CinemaManager.API.Models
         public int SessionId { get; set; }
         public Session Session { get; set; } = null!;
 
-        public int UserId { get; set; }
-        public User User { get; set; } = null!;
+        public int Row { get; set; }
+        public int Seat { get; set; }
 
-        public int RowNumber { get; set; }
-        public int SeatNumber { get; set; }
-        public string Status { get; set; } = string.Empty; // "Paid", "Booked"
+        [MaxLength(256)]
+        public string UserEmail { get; set; } = string.Empty;
+
+        public DateTime PurchaseDate { get; set; }
     }
 }

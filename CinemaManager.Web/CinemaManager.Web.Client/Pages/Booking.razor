@@ -1,5 +1,6 @@
 @page "/booking/{SessionId:int}"
 @inject ApiService Api
+@inject IJSRuntime JS
 
 <PageTitle>Покупка билета - Звездный</PageTitle>
 
@@ -43,7 +44,7 @@ else
             <div class="cm-tags">
                 <span class="cm-tag">@_session.Hall.Name</span>
                 <span class="cm-tag">@_session.Hall.Type</span>
-                <span class="cm-tag">@_session.StartTime:dd.MM.yyyy HH:mm</span>
+                <span class="cm-tag">@_session.StartTime.ToString("dd.MM.yyyy HH:mm")</span>
             </div>
 
             <div class="cm-booking-section">
@@ -107,7 +108,7 @@ else
         <div class="cm-modal" @onclick:stopPropagation="true">
             <h3>Оплата прошла успешно</h3>
             <div class="cm-muted">
-                @_session.Movie.Title • @_session.Hall.Name (@_session.Hall.Type) • @_session.StartTime:dd.MM.yyyy HH:mm
+                @_session.Movie.Title • @_session.Hall.Name (@_session.Hall.Type) • @_session.StartTime.ToString("dd.MM.yyyy HH:mm")
             </div>
 
             <div style="margin-top:14px">
@@ -143,6 +144,7 @@ else
 
     private readonly HashSet<SeatKey> _selected = [];
     private readonly HashSet<SeatKey> _purchasedOccupied = [];
+    private readonly HashSet<SeatKey> _serverOccupied = [];
     private readonly HashSet<string> _selectedSnacks = [];
 
     private readonly Snack[] _snacks =
@@ -161,6 +163,7 @@ else
         _lastPurchasedSeats = [];
         _selected.Clear();
         _purchasedOccupied.Clear();
+        _serverOccupied.Clear();
         _selectedSnacks.Clear();
 
         try
@@ -172,6 +175,10 @@ else
                 _rows = _session.Hall.RowsCount > 0 ? _session.Hall.RowsCount : _rows;
                 _seatsPerRow = _session.Hall.SeatsPerRow > 0 ? _session.Hall.SeatsPerRow : _seatsPerRow;
             }
+
+            var occupied = await Api.GetOccupiedSeatsAsync(SessionId);
+            foreach (var s in occupied)
+                _serverOccupied.Add(new SeatKey(s.Row, s.Seat));
         }
         catch (Exception ex)
         {
@@ -193,10 +200,8 @@ else
     private bool IsOccupied(SeatKey key)
     {
         if (_purchasedOccupied.Contains(key)) return true;
-
-        // Пока нет Tickets API — делаем детерминированные "занятые" места на базе sessionId.
-        var hash = HashCode.Combine(SessionId, key.Row, key.Seat);
-        return Math.Abs(hash) % 11 == 0;
+        if (_serverOccupied.Contains(key)) return true;
+        return false;
     }
 
     private void ToggleSnack(string id)
@@ -223,24 +228,76 @@ else
         }
     }
 
-    private Task BuyAsync()
+    private async Task BuyAsync()
     {
-        if (_selected.Count == 0) return Task.CompletedTask;
+        if (_selected.Count == 0) return;
+
+        var logged = await TryGetLoggedInEmailAsync();
+        if (logged is null)
+        {
+            _errorMessage = "Чтобы купить билет — войдите в личный кабинет.";
+            return;
+        }
+
+        // Пока поддерживаем покупку одного места за раз (простая, надежная транзакция).
+        // При желании можно расширить на массовую покупку.
+        var first = _selected.OrderBy(s => s.Row).ThenBy(s => s.Seat).First();
+
+        try
+        {
+            var resp = await Api.BuyTicketAsync(new BuyTicketRequest
+            {
+                SessionId = SessionId,
+                Row = first.Row,
+                Seat = first.Seat,
+                UserEmail = logged
+            });
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var text = await resp.Content.ReadAsStringAsync();
+                _errorMessage = resp.StatusCode == System.Net.HttpStatusCode.Conflict
+                    ? "Увы, это место уже заняли. Обновите страницу и выберите другое."
+                    : $"Ошибка покупки: {(int)resp.StatusCode} {resp.ReasonPhrase}\n{text}";
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Ошибка покупки: {ex.Message}";
+            return;
+        }
 
         LastPurchaseTotal = TotalPrice;
-        _lastPurchasedSeats = _selected.OrderBy(s => s.Row).ThenBy(s => s.Seat).ToArray();
+        _lastPurchasedSeats = [first];
 
-        foreach (var s in _selected)
-            _purchasedOccupied.Add(s);
+        _purchasedOccupied.Add(first);
+        _serverOccupied.Add(first);
 
         _selected.Clear();
         _selectedSnacks.Clear();
         _isSuccessModalOpen = true;
-        return Task.CompletedTask;
     }
 
     private void CloseModal()
         => _isSuccessModalOpen = false;
+
+    private async Task<string?> TryGetLoggedInEmailAsync()
+    {
+        try
+        {
+            var loggedIn = await JS.InvokeAsync<string?>("localStorage.getItem", "cm.profile.loggedIn");
+            if (!string.Equals(loggedIn, "1", StringComparison.Ordinal))
+                return null;
+
+            var email = await JS.InvokeAsync<string?>("localStorage.getItem", "cm.profile.email");
+            return string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     private readonly record struct SeatKey(int Row, int Seat);
     private sealed record Snack(string Id, string Title, int Price);

@@ -64,6 +64,31 @@
                     <DataGridTextColumn Header="Зал" Width="150" Binding="{Binding HallName}"/>
                     <DataGridTextColumn Header="Окончание (с уборкой)" Width="180" Binding="{Binding EndTime, StringFormat={}{0:HH\\:mm}}"/>
                     <DataGridTextColumn Header="Цена" Width="100" Binding="{Binding TicketPrice}"/>
+                    <DataGridTemplateColumn Header="Действия" Width="*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="✎"
+                                            Width="34"
+                                            Height="28"
+                                            Margin="0,0,8,0"
+                                            Background="#3E3E42"
+                                            Foreground="White"
+                                            BorderThickness="0"
+                                            Click="BtnEditSession_Click"
+                                            Tag="{Binding}"/>
+                                    <Button Content="🗑"
+                                            Width="34"
+                                            Height="28"
+                                            Background="#8A1F1F"
+                                            Foreground="White"
+                                            BorderThickness="0"
+                                            Click="BtnDeleteSession_Click"
+                                            Tag="{Binding}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>

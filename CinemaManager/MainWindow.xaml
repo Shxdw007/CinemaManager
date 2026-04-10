@@ -25,8 +25,8 @@
                     <Button Content="🎬 Фильмы" Background="#3E3E42" Foreground="White" Height="40" Margin="0,5" BorderThickness="0" FontSize="16" HorizontalContentAlignment="Left" Padding="15,0"/>
                     <Button Content="📅 Сеансы" Click="BtnSchedule_Click" Background="Transparent" Foreground="#CCCCCC" Height="40" Margin="0,5" BorderThickness="0" FontSize="16" HorizontalContentAlignment="Left" Padding="15,0"/>
                     <Button Content="💺 Залы" Background="Transparent" Foreground="#CCCCCC" Height="40" Margin="0,5" BorderThickness="0" FontSize="16" HorizontalContentAlignment="Left" Padding="15,0" Click="Button_Click"/>
-                    <Button Content="📊 Статистика (позже)" IsEnabled="False"
-                            Background="Transparent" Foreground="#666666" Height="40" Margin="0,5"
+                    <Button Content="📊 Статистика" Click="BtnStats_Click"
+                            Background="Transparent" Foreground="#CCCCCC" Height="40" Margin="0,5"
                             BorderThickness="0" FontSize="16" HorizontalContentAlignment="Left" Padding="15,0"/>
                 </StackPanel>
 
@@ -54,7 +54,29 @@
                     <DataGridTextColumn Header="Жанр" Width="150" Binding="{Binding Genre}"/>
                     <DataGridTextColumn Header="Длительность" Width="120" Binding="{Binding Duration}"/>
                     <DataGridTextColumn Header="Рейтинг" Width="80" Binding="{Binding AgeRating}"/>
-                    <DataGridTextColumn Header="Действия" Width="*" Binding="{Binding Actions}"/>
+                    <DataGridTemplateColumn Header="Действия" Width="*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <Button Content="✎ Изменить"
+                                            Margin="0,0,10,0"
+                                            Padding="10,4"
+                                            Background="#3E3E42"
+                                            Foreground="White"
+                                            BorderThickness="0"
+                                            Click="BtnEditMovie_Click"
+                                            Tag="{Binding}"/>
+                                    <Button Content="🗑 Удалить"
+                                            Padding="10,4"
+                                            Background="#8A1F1F"
+                                            Foreground="White"
+                                            BorderThickness="0"
+                                            Click="BtnDeleteMovie_Click"
+                                            Tag="{Binding}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </Grid>

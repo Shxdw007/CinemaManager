@@ -81,6 +81,11 @@
             <TextBlock Text="Описание" Foreground="#CCCCCC" Margin="0,0,0,5"/>
             <TextBox x:Name="DescriptionTextBox" Height="100" Background="#2D2D30" Foreground="White" BorderThickness="0" Padding="10" TextWrapping="Wrap" AcceptsReturn="True"/>
 
+            <CheckBox x:Name="IsComingSoonCheckBox"
+                      Content="Скоро в прокате"
+                      Foreground="White"
+                      Margin="0,15,0,0"/>
+
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                 <Button Content="Отмена" Click="BtnCancel_Click" Width="100" Height="35" Background="#333337" Foreground="White" BorderThickness="0" Margin="0,0,10,0"/>
                 <Button Content="Сохранить" Click="BtnSave_Click" Width="120" Height="35" Background="#007ACC" Foreground="White" BorderThickness="0" FontWeight="SemiBold"/>

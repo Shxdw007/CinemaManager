@@ -1,4 +1,6 @@
 @page "/profile"
+@inject IJSRuntime JS
+@inject ApiService Api
 
 <PageTitle>Личный кабинет - Звездный</PageTitle>
 
@@ -56,44 +58,64 @@ else
 
         <div class="cm-tabs">
             <button type="button" class="cm-tab @(activeTab is Tab.Active ? "active" : "")" @onclick="() => activeTab = Tab.Active">
-                Активные билеты (@activeTickets.Count)
+                Мои билеты (@myTickets.Count)
             </button>
             <button type="button" class="cm-tab @(activeTab is Tab.History ? "active" : "")" @onclick="() => activeTab = Tab.History">
                 История покупок
             </button>
         </div>
 
-        @foreach (var t in (activeTab is Tab.Active ? activeTickets : historyTickets))
+        @if (_ticketsLoading)
         {
-            <div class="cm-ticket">
-                <div class="cm-ticket-poster">Постер</div>
-                <div class="cm-ticket-details">
-                    <h3>@t.MovieTitle</h3>
-                    <p style="margin:0; color:#aaa">@t.HallName • Формат @t.Format</p>
-
-                    <div class="cm-ticket-meta">
-                        <div class="cm-meta-item"><span>Дата</span><strong>@t.Date</strong></div>
-                        <div class="cm-meta-item"><span>Время</span><strong>@t.Time</strong></div>
-                        <div class="cm-meta-item"><span>Ряд</span><strong>@t.Row</strong></div>
-                        <div class="cm-meta-item"><span>Место</span><strong>@t.Seat</strong></div>
-                    </div>
-
-                    @if (!string.IsNullOrWhiteSpace(t.Note))
-                    {
-                        <p style="margin: 15px 0 0 0; font-size: 12px; color: #FFD700;">@t.Note</p>
-                    }
-                </div>
-
-                <div class="cm-ticket-qr">
-                    <div class="cm-qr-placeholder" aria-hidden="true">
-                        @foreach (var dot in t.QrMask)
-                        {
-                            <div class="cm-qr-dot" style="@(dot ? "" : "background:transparent")"></div>
-                        }
-                    </div>
-                    <div class="cm-ticket-status">@t.Status</div>
-                </div>
+            <div class="cm-alert"><strong>Загрузка билетов…</strong></div>
+        }
+        else if (_ticketsError is not null)
+        {
+            <div class="cm-alert">
+                <strong>Не удалось загрузить билеты.</strong>
+                <div class="cm-muted">@_ticketsError</div>
             </div>
+        }
+        else if (myTickets.Count == 0)
+        {
+            <div class="cm-alert">
+                <strong>Вы еще не купили ни одного билета.</strong>
+                <div class="cm-muted">Выберите сеанс и купите билет — он появится здесь автоматически.</div>
+            </div>
+        }
+        else
+        {
+            @foreach (var t in myTickets)
+            {
+                <div class="cm-ticket">
+                    <div class="cm-ticket-poster">Постер</div>
+                    <div class="cm-ticket-details">
+                        <h3>@t.MovieTitle</h3>
+                        <p style="margin:0; color:#aaa">@t.HallName • Формат @t.HallType</p>
+
+                        <div class="cm-ticket-meta">
+                            <div class="cm-meta-item"><span>Дата</span><strong>@t.SessionStartTime.ToString("dd.MM.yyyy")</strong></div>
+                            <div class="cm-meta-item"><span>Время</span><strong>@t.SessionStartTime.ToString("HH:mm")</strong></div>
+                            <div class="cm-meta-item"><span>Ряд</span><strong>@t.Row</strong></div>
+                            <div class="cm-meta-item"><span>Место</span><strong>@t.Seat</strong></div>
+                        </div>
+
+                        <p style="margin: 15px 0 0 0; font-size: 12px; color: #FFD700;">
+                            ✦ Куплено: @t.PurchaseDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm") • Цена: @t.TicketPrice ₽
+                        </p>
+                    </div>
+
+                    <div class="cm-ticket-qr">
+                        <div class="cm-qr-placeholder" aria-hidden="true">
+                            @foreach (var dot in DemoQrMask(t.TicketId))
+                            {
+                                <div class="cm-qr-dot" style="@(dot ? "" : "background:transparent")"></div>
+                            }
+                        </div>
+                        <div class="cm-ticket-status">Оплачен</div>
+                    </div>
+                </div>
+            }
         }
     </div>
 }
@@ -111,18 +133,32 @@ else
 
     private Tab activeTab = Tab.Active;
 
-    private readonly List<TicketVm> activeTickets =
-    [
-        TicketVm.DemoActive(),
-    ];
+    private bool _ticketsLoading;
+    private string? _ticketsError;
+    private List<MyTicketDto> myTickets = [];
 
-    private readonly List<TicketVm> historyTickets =
-    [
-        TicketVm.DemoHistory1(),
-        TicketVm.DemoHistory2(),
-    ];
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey.LoggedIn);
+            if (string.Equals(saved, "1", StringComparison.Ordinal))
+            {
+                var savedEmail = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey.Email);
+                if (!string.IsNullOrWhiteSpace(savedEmail))
+                    email = savedEmail;
 
-    private void Login()
+                isLoggedIn = true;
+                await LoadMyTicketsAsync();
+            }
+        }
+        catch
+        {
+            // ignore: localStorage may be unavailable in some hosting scenarios
+        }
+    }
+
+    private async Task Login()
     {
         authMessage = null;
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
@@ -132,6 +168,19 @@ else
         }
 
         isLoggedIn = true;
+        password = "";
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey.LoggedIn, "1");
+            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey.Email, email);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        await LoadMyTicketsAsync();
     }
 
     private void Register()
@@ -139,12 +188,25 @@ else
         authMessage = "Регистрация будет подключена позже. Для демо нажмите «Войти в систему».";
     }
 
-    private void Logout()
+    private async Task Logout()
     {
         isLoggedIn = false;
         password = "";
         authMessage = null;
         activeTab = Tab.Active;
+        myTickets = [];
+        _ticketsError = null;
+        _ticketsLoading = false;
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", StorageKey.LoggedIn);
+            await JS.InvokeVoidAsync("localStorage.removeItem", StorageKey.Email);
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     private enum Tab
@@ -153,64 +215,38 @@ else
         History
     }
 
-    private sealed record TicketVm(
-        string MovieTitle,
-        string HallName,
-        string Format,
-        string Date,
-        string Time,
-        int Row,
-        int Seat,
-        string Status,
-        string? Note,
-        bool[] QrMask)
+    private static class StorageKey
     {
-        public static TicketVm DemoActive()
-            => new(
-                MovieTitle: "Дюна: Часть вторая",
-                HallName: "VIP Зал",
-                Format: "3D",
-                Date: "14 Марта",
-                Time: "20:00",
-                Row: 5,
-                Seat: 12,
-                Status: "Оплачен",
-                Note: "✦ Оплачены снеки: Попкорн, Кола",
-                QrMask: DemoQrMask(seed: 42));
+        public const string LoggedIn = "cm.profile.loggedIn";
+        public const string Email = "cm.profile.email";
+    }
 
-        public static TicketVm DemoHistory1()
-            => new(
-                MovieTitle: "Интерстеллар",
-                HallName: "Зал 1",
-                Format: "2D",
-                Date: "02 Марта",
-                Time: "18:30",
-                Row: 3,
-                Seat: 7,
-                Status: "Посещён",
-                Note: null,
-                QrMask: DemoQrMask(seed: 7));
+    private async Task LoadMyTicketsAsync()
+    {
+        _ticketsLoading = true;
+        _ticketsError = null;
+        myTickets = [];
 
-        public static TicketVm DemoHistory2()
-            => new(
-                MovieTitle: "Дэдпул и Росомаха",
-                HallName: "Зал 2",
-                Format: "3D",
-                Date: "27 Февраля",
-                Time: "21:15",
-                Row: 8,
-                Seat: 4,
-                Status: "Посещён",
-                Note: null,
-                QrMask: DemoQrMask(seed: 13));
-
-        private static bool[] DemoQrMask(int seed)
+        try
         {
-            var rng = new Random(seed);
-            var mask = new bool[16];
-            for (var i = 0; i < mask.Length; i++)
-                mask[i] = rng.NextDouble() > 0.35;
-            return mask;
+            myTickets = (await Api.GetMyTicketsAsync(email)).ToList();
         }
+        catch (Exception ex)
+        {
+            _ticketsError = ex.Message;
+        }
+        finally
+        {
+            _ticketsLoading = false;
+        }
+    }
+
+    private static bool[] DemoQrMask(int seed)
+    {
+        var rng = new Random(seed);
+        var mask = new bool[16];
+        for (var i = 0; i < mask.Length; i++)
+            mask[i] = rng.NextDouble() > 0.35;
+        return mask;
     }
 }

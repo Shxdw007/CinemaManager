@@ -22,5 +22,16 @@ public sealed class ApiService(HttpClient http)
 
     public Task<HttpResponseMessage> CreateSessionAsync(CreateSessionRequest request, CancellationToken ct = default)
         => http.PostAsJsonAsync("api/sessions", request, ct);
+
+    public async Task<IReadOnlyList<OccupiedSeatDto>> GetOccupiedSeatsAsync(int sessionId, CancellationToken ct = default)
+        => await http.GetFromJsonAsync<List<OccupiedSeatDto>>($"api/tickets/session/{sessionId}", ct).ConfigureAwait(false)
+           ?? [];
+
+    public Task<HttpResponseMessage> BuyTicketAsync(BuyTicketRequest request, CancellationToken ct = default)
+        => http.PostAsJsonAsync("api/tickets/buy", request, ct);
+
+    public async Task<IReadOnlyList<MyTicketDto>> GetMyTicketsAsync(string email, CancellationToken ct = default)
+        => await http.GetFromJsonAsync<List<MyTicketDto>>($"api/tickets/my?email={Uri.EscapeDataString(email)}", ct).ConfigureAwait(false)
+           ?? [];
 }
 

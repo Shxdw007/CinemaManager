@@ -15,10 +15,37 @@ namespace CinemaManager
     public partial class AddMovieWindow : Window
     {
         private string? _posterFilePath;
+        private readonly Movie? _editMovie;
 
         public AddMovieWindow()
         {
             InitializeComponent();
+        }
+
+        public AddMovieWindow(Movie movieToEdit) : this()
+        {
+            _editMovie = movieToEdit;
+
+            TitleTextBox.Text = movieToEdit.Title;
+            DescriptionTextBox.Text = movieToEdit.Description;
+            DurationTextBox.Text = movieToEdit.Duration.ToString();
+
+            SelectComboItemByText(GenreComboBox, movieToEdit.Genre);
+            SelectComboItemByText(AgeRatingComboBox, movieToEdit.AgeRating);
+            IsComingSoonCheckBox.IsChecked = movieToEdit.IsComingSoon;
+        }
+
+        private static void SelectComboItemByText(ComboBox comboBox, string value)
+        {
+            for (var i = 0; i < comboBox.Items.Count; i++)
+            {
+                if (comboBox.Items[i] is ComboBoxItem item &&
+                    string.Equals(item.Content?.ToString(), value, StringComparison.OrdinalIgnoreCase))
+                {
+                    comboBox.SelectedIndex = i;
+                    return;
+                }
+            }
         }
 
         private void BtnLoadImage_Click(object sender, RoutedEventArgs e)
@@ -56,7 +83,38 @@ namespace CinemaManager
                 var ageRating = (AgeRatingComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
                 var duration = int.TryParse(DurationTextBox.Text, out var d) ? d : 120;
                 var description = DescriptionTextBox.Text ?? "";
+                var isComingSoon = IsComingSoonCheckBox.IsChecked == true;
 
+                if (_editMovie is not null)
+                {
+                    // Режим редактирования: делаем PUT (постер не меняем здесь).
+                    var payload = new
+                    {
+                        title,
+                        description,
+                        genre,
+                        duration,
+                        ageRating,
+                        director = "",
+                        isComingSoon
+                    };
+
+                    var response = await ApiClient.Http.PutAsJsonAsync($"api/movies/{_editMovie.Id}", payload);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        MessageBox.Show("Фильм успешно обновлен!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                        Close();
+                        return;
+                    }
+
+                    var serverText = await response.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Ошибка при обновлении фильма.\n{(int)response.StatusCode} {response.ReasonPhrase}\n{serverText}",
+                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // Режим добавления: POST multipart с файлом (если выбран)
                 using var content = new MultipartFormDataContent();
                 content.Add(new StringContent(title), "Title");
                 content.Add(new StringContent(description), "Description");
@@ -64,13 +122,13 @@ namespace CinemaManager
                 content.Add(new StringContent(ageRating), "AgeRating");
                 content.Add(new StringContent(duration.ToString()), "Duration");
                 content.Add(new StringContent(""), "Director");
+                content.Add(new StringContent(isComingSoon ? "true" : "false"), "IsComingSoon");
 
                 if (!string.IsNullOrWhiteSpace(_posterFilePath) && File.Exists(_posterFilePath))
                 {
                     var bytes = await File.ReadAllBytesAsync(_posterFilePath);
                     var fileContent = new ByteArrayContent(bytes);
 
-                    // API отдает image/jpeg; на прием тип не критичен, но заголовок полезен
                     var ext = Path.GetExtension(_posterFilePath).ToLowerInvariant();
                     fileContent.Headers.ContentType = ext switch
                     {
@@ -82,17 +140,17 @@ namespace CinemaManager
                     content.Add(fileContent, "Poster", Path.GetFileName(_posterFilePath));
                 }
 
-                var response = await ApiClient.Http.PostAsync("api/movies", content);
+                var createResponse = await ApiClient.Http.PostAsync("api/movies", content);
 
-                if (response.IsSuccessStatusCode)
+                if (createResponse.IsSuccessStatusCode)
                 {
                     MessageBox.Show("Фильм успешно добавлен в базу данных!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
                     this.Close(); // Закрываем окно добавления
                 }
                 else
                 {
-                    var serverText = await response.Content.ReadAsStringAsync();
-                    MessageBox.Show($"Ошибка при добавлении фильма на сервер.\n{(int)response.StatusCode} {response.ReasonPhrase}\n{serverText}",
+                    var serverText = await createResponse.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Ошибка при добавлении фильма на сервер.\n{(int)createResponse.StatusCode} {createResponse.ReasonPhrase}\n{serverText}",
                         "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }

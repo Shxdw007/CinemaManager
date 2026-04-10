@@ -7,10 +7,10 @@
 <div class="cm-hero">
     <h1>Смотри на большом экране</h1>
     <div class="cm-filters">
-        <button class="cm-filter-btn active" type="button">В прокате</button>
-        <button class="cm-filter-btn" type="button">Скоро</button>
-        <button class="cm-filter-btn" type="button">Фантастика</button>
-        <button class="cm-filter-btn" type="button">Боевики</button>
+        <button class="@GetFilterBtnCss(FilterKey.All)" type="button" @onclick="() => SetFilter(FilterKey.All)">В прокате</button>
+        <button class="@GetFilterBtnCss(FilterKey.Soon)" type="button" @onclick="() => SetFilter(FilterKey.Soon)">Скоро</button>
+        <button class="@GetFilterBtnCss(FilterKey.Fantasy)" type="button" @onclick="() => SetFilter(FilterKey.Fantasy)">Фантастика</button>
+        <button class="@GetFilterBtnCss(FilterKey.Action)" type="button" @onclick="() => SetFilter(FilterKey.Action)">Боевики</button>
     </div>
 </div>
 
@@ -30,7 +30,7 @@ else if (_errorMessage is not null)
 else
 {
     <div class="cm-movie-grid">
-        @foreach (var movie in _movies)
+        @foreach (var movie in FilteredMovies)
         {
             <div class="cm-movie-card">
                 <NavLink href="@($"/movie/{movie.Id}")" style="text-decoration:none;color:inherit">
@@ -58,6 +58,7 @@ else
     private bool _isLoading = true;
     private string? _errorMessage;
     private IReadOnlyList<MovieDto> _movies = [];
+    private FilterKey _activeFilter = FilterKey.All;
 
     protected override async Task OnInitializedAsync()
     {
@@ -75,4 +76,37 @@ else
         }
     }
 
+    private IEnumerable<MovieDto> FilteredMovies
+    {
+        get
+        {
+            var released = _movies.Where(m => !m.IsComingSoon);
+            var comingSoon = _movies.Where(m => m.IsComingSoon);
+
+            return _activeFilter switch
+            {
+                FilterKey.All => released,
+                FilterKey.Soon => comingSoon,
+                FilterKey.Fantasy => released.Where(m => ContainsGenre(m, "фантаст")),
+                FilterKey.Action => released.Where(m => ContainsGenre(m, "боевик")),
+                _ => released
+            };
+        }
+    }
+
+    private void SetFilter(FilterKey filter) => _activeFilter = filter;
+
+    private string GetFilterBtnCss(FilterKey filter)
+        => $"cm-filter-btn{(filter == _activeFilter ? " active" : "")}";
+
+    private static bool ContainsGenre(MovieDto movie, string needle)
+        => (movie.Genre ?? string.Empty).Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+    private enum FilterKey
+    {
+        All,
+        Soon,
+        Fantasy,
+        Action
+    }
 }
