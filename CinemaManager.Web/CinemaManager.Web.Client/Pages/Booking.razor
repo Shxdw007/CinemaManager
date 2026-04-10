@@ -26,9 +26,11 @@ else
 {
     <div class="cm-movie-container">
         <div class="cm-poster-wrapper cm-poster-large">
-            @if (!string.IsNullOrWhiteSpace(_session.Movie.PosterData))
+            @if (_session.Movie.HasPoster)
             {
-                <img class="cm-poster-img" src="@ToPosterSrc(_session.Movie.PosterData)" alt="@_session.Movie.Title" />
+                <img class="cm-poster-img"
+                     src="@($"https://localhost:7028/api/movies/{_session.Movie.Id}/poster")"
+                     alt="@_session.Movie.Title" />
             }
             else
             {
@@ -239,17 +241,6 @@ else
 
     private void CloseModal()
         => _isSuccessModalOpen = false;
-
-    private static string ToPosterSrc(string posterData)
-    {
-        if (posterData.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            return posterData;
-
-        if (posterData.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-            return posterData;
-
-        return $"data:image/*;base64,{posterData}";
-    }
 
     private readonly record struct SeatKey(int Row, int Seat);
     private sealed record Snack(string Id, string Title, int Price);

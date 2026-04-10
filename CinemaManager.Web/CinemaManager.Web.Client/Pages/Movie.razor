@@ -28,9 +28,11 @@ else
 {
     <div class="cm-movie-container">
         <div class="cm-poster-wrapper cm-poster-large">
-            @if (!string.IsNullOrWhiteSpace(_movie.PosterData))
+            @if (_movie.HasPoster)
             {
-                <img class="cm-poster-img" src="@ToPosterSrc(_movie.PosterData)" alt="@_movie.Title" />
+                <img class="cm-poster-img"
+                     src="@($"https://localhost:7028/api/movies/{_movie.Id}/poster")"
+                     alt="@_movie.Title" />
             }
             else
             {
@@ -118,15 +120,5 @@ else
             ? "cm-hall-btn"
             : "cm-hall-btn";
 
-    private static string ToPosterSrc(string posterData)
-    {
-        if (posterData.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            return posterData;
-
-        if (posterData.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-            return posterData;
-
-        return $"data:image/*;base64,{posterData}";
-    }
 }
 

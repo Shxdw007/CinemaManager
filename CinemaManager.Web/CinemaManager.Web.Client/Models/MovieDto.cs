@@ -9,6 +9,6 @@ public sealed record MovieDto
     public int Duration { get; init; }
     public string AgeRating { get; init; } = "";
     public string Director { get; init; } = "";
-    public string PosterData { get; init; } = "";
+    public bool HasPoster { get; init; }
 }
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -50,13 +51,46 @@ namespace CinemaManager.API.Controllers
         // POST: api/movies
         // Добавить новый фильм в БД
         [HttpPost]
-        public async Task<ActionResult<Movie>> PostMovie(Movie movie)
+        public async Task<ActionResult<Movie>> PostMovie([FromForm] CreateMovieForm form)
         {
+            byte[]? posterBytes = null;
+            if (form.Poster is not null && form.Poster.Length > 0)
+            {
+                await using var ms = new MemoryStream();
+                await form.Poster.CopyToAsync(ms);
+                posterBytes = ms.ToArray();
+            }
+
+            var movie = new Movie
+            {
+                Title = form.Title ?? string.Empty,
+                Genre = form.Genre ?? string.Empty,
+                AgeRating = form.AgeRating ?? string.Empty,
+                Duration = form.Duration ?? 0,
+                Description = form.Description ?? string.Empty,
+                Director = form.Director ?? string.Empty,
+                PosterImage = posterBytes
+            };
+
             _context.Movies.Add(movie);
             await _context.SaveChangesAsync();
 
             // Возвращает статус 201 Created и ссылку на новый фильм
             return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, movie);
+        }
+
+        // GET: api/movies/5/poster
+        // Получить постер фильма
+        [HttpGet("{id:int}/poster")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPoster(int id)
+        {
+            var movie = await _context.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id);
+            if (movie is null) return NotFound();
+            if (movie.PosterImage is null || movie.PosterImage.Length == 0) return NotFound();
+
+            // Минимальное требование ТЗ: вернуть image/jpeg. При желании можно улучшить определение типа по сигнатуре.
+            return File(movie.PosterImage, "image/jpeg");
         }
 
         // PUT: api/movies/5
@@ -111,6 +145,17 @@ namespace CinemaManager.API.Controllers
         private bool MovieExists(int id)
         {
             return _context.Movies.Any(e => e.Id == id);
+        }
+
+        public sealed class CreateMovieForm
+        {
+            public string? Title { get; init; }
+            public string? Description { get; init; }
+            public string? Genre { get; init; }
+            public int? Duration { get; init; }
+            public string? AgeRating { get; init; }
+            public string? Director { get; init; }
+            public IFormFile? Poster { get; init; }
         }
     }
 }

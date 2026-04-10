@@ -24,9 +24,21 @@
 
         <StackPanel Grid.Column="0" Margin="0,0,30,0">
             <Border Width="220" Height="320" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="1" Margin="0,0,0,15">
-                <TextBlock Text="[ Превью постера ]" Foreground="#AAAAAA" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Grid>
+                    <Image x:Name="PosterPreview" Stretch="UniformToFill" />
+                    <TextBlock x:Name="PosterPlaceholder"
+                               Text="[ Превью постера ]"
+                               Foreground="#AAAAAA"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Grid>
             </Border>
-            <Button Content="Загрузить изображение" Height="35" Background="#333337" Foreground="White" BorderThickness="0"/>
+            <Button Content="Загрузить изображение"
+                    Height="35"
+                    Background="#333337"
+                    Foreground="White"
+                    BorderThickness="0"
+                    Click="BtnLoadImage_Click"/>
         </StackPanel>
 
         <StackPanel Grid.Column="1">

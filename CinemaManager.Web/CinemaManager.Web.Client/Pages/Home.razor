@@ -35,9 +35,11 @@ else
             <div class="cm-movie-card">
                 <NavLink href="@($"/movie/{movie.Id}")" style="text-decoration:none;color:inherit">
                     <div class="cm-poster-wrapper">
-                        @if (!string.IsNullOrWhiteSpace(movie.PosterData))
+                        @if (movie.HasPoster)
                         {
-                            <img class="cm-poster-img" src="@ToPosterSrc(movie.PosterData)" alt="@movie.Title" />
+                            <img class="cm-poster-img"
+                                 src="@($"https://localhost:7028/api/movies/{movie.Id}/poster")"
+                                 alt="@movie.Title" />
                         }
                         else
                         {
@@ -73,14 +75,4 @@ else
         }
     }
 
-    private static string ToPosterSrc(string posterData)
-    {
-        if (posterData.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            return posterData;
-
-        if (posterData.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-            return posterData;
-
-        return $"data:image/*;base64,{posterData}";
-    }
 }

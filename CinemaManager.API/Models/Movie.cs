@@ -1,4 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace CinemaManager.API.Models
 {
@@ -17,7 +19,10 @@ namespace CinemaManager.API.Models
         public string AgeRating { get; set; } = string.Empty; // 0+, 6+, 12+, 16+, 18+
         public string Director { get; set; } = string.Empty;
 
-        // Будем хранить изображение в Base64 или путь к файлу
-        public string PosterData { get; set; } = string.Empty;
+        [JsonIgnore]
+        public byte[]? PosterImage { get; set; }
+
+        [NotMapped]
+        public bool HasPoster => PosterImage is { Length: > 0 };
     }
 }
