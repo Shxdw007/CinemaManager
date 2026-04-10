@@ -12,7 +12,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
-// === ВОТ ЭТО CURSOR УДАЛИЛ, А МЫ ВОЗВРАЩАЕМ ===
 // 1. Учим сервер делать запросы к API
 builder.Services.AddScoped(sp =>
     new HttpClient { BaseAddress = new Uri("https://localhost:7028/") });
