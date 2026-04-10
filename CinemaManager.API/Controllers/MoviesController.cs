@@ -69,6 +69,7 @@ namespace CinemaManager.API.Controllers
                 Duration = form.Duration ?? 0,
                 Description = form.Description ?? string.Empty,
                 Director = form.Director ?? string.Empty,
+                IsComingSoon = form.IsComingSoon ?? false,
                 PosterImage = posterBytes
             };
 
@@ -96,32 +97,26 @@ namespace CinemaManager.API.Controllers
         // PUT: api/movies/5
         // Обновить существующий фильм
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutMovie(int id, Movie movie)
+        public async Task<IActionResult> PutMovie(int id, [FromBody] UpdateMovieRequest request)
         {
-            if (id != movie.Id)
-            {
-                return BadRequest("ID в URL не совпадает с ID в теле запроса.");
-            }
+            if (id <= 0) return BadRequest("Некорректный ID.");
 
-            _context.Entry(movie).State = EntityState.Modified;
+            var movie = await _context.Movies.FirstOrDefaultAsync(m => m.Id == id);
+            if (movie is null) return NotFound("Фильм не найден.");
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!MovieExists(id))
-                {
-                    return NotFound("Фильм не найден.");
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            // Важно: постер не трогаем (PosterImage), чтобы WPF-редактирование не затирало его null-ом.
+            movie.Title = request.Title ?? movie.Title;
+            movie.Description = request.Description ?? movie.Description;
+            movie.Genre = request.Genre ?? movie.Genre;
+            movie.AgeRating = request.AgeRating ?? movie.AgeRating;
+            movie.Director = request.Director ?? movie.Director;
+            if (request.IsComingSoon is not null)
+                movie.IsComingSoon = request.IsComingSoon.Value;
+            if (request.Duration is not null)
+                movie.Duration = request.Duration.Value;
 
-            return NoContent(); // Успешно обновлено, возвращаем 204 No Content
+            await _context.SaveChangesAsync();
+            return NoContent();
         }
 
         // DELETE: api/movies/5
@@ -155,7 +150,19 @@ namespace CinemaManager.API.Controllers
             public int? Duration { get; init; }
             public string? AgeRating { get; init; }
             public string? Director { get; init; }
+            public bool? IsComingSoon { get; init; }
             public IFormFile? Poster { get; init; }
+        }
+
+        public sealed class UpdateMovieRequest
+        {
+            public string? Title { get; init; }
+            public string? Description { get; init; }
+            public string? Genre { get; init; }
+            public int? Duration { get; init; }
+            public string? AgeRating { get; init; }
+            public string? Director { get; init; }
+            public bool? IsComingSoon { get; init; }
         }
     }
 }

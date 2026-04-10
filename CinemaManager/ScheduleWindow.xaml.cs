@@ -14,6 +14,9 @@ namespace CinemaManager
     /// </summary>
     public partial class ScheduleWindow : Window
     {
+        private int? _editingSessionId;
+        private List<ApiMovieFull> _movies = new();
+
         public ScheduleWindow()
         {
             InitializeComponent();
@@ -32,9 +35,9 @@ namespace CinemaManager
         {
             try
             {
-                var movies = await ApiClient.Http.GetFromJsonAsync<List<ApiMovieFull>>("api/movies") ?? new();
-                MovieComboBox.ItemsSource = movies;
-                if (movies.Count > 0) MovieComboBox.SelectedIndex = 0;
+                _movies = await ApiClient.Http.GetFromJsonAsync<List<ApiMovieFull>>("api/movies") ?? new();
+                MovieComboBox.ItemsSource = _movies;
+                if (_movies.Count > 0) MovieComboBox.SelectedIndex = 0;
 
                 var halls = await ApiClient.Http.GetFromJsonAsync<List<ApiHallFull>>("api/halls") ?? new();
                 HallComboBox.ItemsSource = halls;
@@ -122,7 +125,9 @@ namespace CinemaManager
                     ticketPrice = price
                 };
 
-                var resp = await ApiClient.Http.PostAsJsonAsync("api/sessions", payload);
+                var resp = _editingSessionId is null
+                    ? await ApiClient.Http.PostAsJsonAsync("api/sessions", payload)
+                    : await ApiClient.Http.PutAsJsonAsync($"api/sessions/{_editingSessionId.Value}", BuildPutPayload(_editingSessionId.Value, movieId, hallId, start, price));
 
                 if (resp.StatusCode == HttpStatusCode.Conflict)
                 {
@@ -138,11 +143,89 @@ namespace CinemaManager
                     return;
                 }
 
+                _editingSessionId = null;
                 LoadSessionsAsync();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка добавления сеанса: {ex.Message}");
+            }
+        }
+
+        private object BuildPutPayload(int id, int movieId, int hallId, DateTime start, decimal price)
+        {
+            // Сохраняем EndTime корректным (start + duration + 20 минут).
+            var duration = _movies.FirstOrDefault(m => m.Id == movieId)?.Duration ?? 0;
+            var end = start.AddMinutes(duration + 20);
+
+            return new
+            {
+                id,
+                movieId,
+                hallId,
+                startTime = start,
+                endTime = end,
+                ticketPrice = price
+            };
+        }
+
+        private void BtnEditSession_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button { Tag: SessionRow row })
+                return;
+
+            _editingSessionId = row.Id;
+
+            // Select movie by title (best-effort)
+            for (var i = 0; i < MovieComboBox.Items.Count; i++)
+            {
+                if (MovieComboBox.Items[i] is ApiMovieFull m && string.Equals(m.Title, row.MovieTitle, StringComparison.OrdinalIgnoreCase))
+                {
+                    MovieComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+
+            for (var i = 0; i < HallComboBox.Items.Count; i++)
+            {
+                if (HallComboBox.Items[i] is ApiHallFull h && string.Equals(h.Name, row.HallName, StringComparison.OrdinalIgnoreCase))
+                {
+                    HallComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+
+            DatePicker.SelectedDate = row.StartTime.Date;
+            TimeTextBox.Text = row.StartTime.ToString("HH:mm");
+            PriceTextBox.Text = row.TicketPrice.ToString();
+        }
+
+        private async void BtnDeleteSession_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button { Tag: SessionRow row })
+                return;
+
+            var confirm = MessageBox.Show($"Удалить сеанс «{row.MovieTitle}» в «{row.HallName}» на {row.StartTime:dd.MM.yyyy HH:mm}?",
+                "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                var resp = await ApiClient.Http.DeleteAsync($"api/sessions/{row.Id}");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var text = await resp.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Не удалось удалить сеанс: {(int)resp.StatusCode} {resp.ReasonPhrase}\n{text}");
+                    return;
+                }
+
+                if (_editingSessionId == row.Id) _editingSessionId = null;
+                LoadSessionsAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка удаления: {ex.Message}");
             }
         }
 
@@ -185,6 +268,7 @@ namespace CinemaManager
     {
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
+        public int Duration { get; set; }
     }
 
     public sealed class ApiHallFull

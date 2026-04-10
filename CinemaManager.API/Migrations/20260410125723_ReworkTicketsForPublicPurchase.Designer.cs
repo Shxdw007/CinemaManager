@@ -3,6 +3,7 @@ using System;
 using CinemaManager.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CinemaManager.API.Migrations
 {
     [DbContext(typeof(CinemaDbContext))]
-    partial class CinemaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260410125723_ReworkTicketsForPublicPurchase")]
+    partial class ReworkTicketsForPublicPurchase
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -75,9 +78,6 @@ namespace CinemaManager.API.Migrations
                     b.Property<string>("Genre")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<bool>("IsComingSoon")
-                        .HasColumnType("boolean");
 
                     b.Property<byte[]>("PosterImage")
                         .HasColumnType("bytea");

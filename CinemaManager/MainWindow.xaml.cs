@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http.Json;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace CinemaManager
@@ -25,12 +26,6 @@ namespace CinemaManager
 
                 if (movies != null)
                 {
-                    // Для красоты добавляем заглушку текста кнопок каждому фильму
-                    foreach (var m in movies)
-                    {
-                        m.Actions = "✎ Изменить   🗑 Удалить";
-                    }
-
                     // Отдаем данные в таблицу
                     MoviesGrid.ItemsSource = movies;
                 }
@@ -47,6 +42,44 @@ namespace CinemaManager
             AddMovieWindow addMovieWin = new AddMovieWindow();
             addMovieWin.ShowDialog();
             LoadRealDataAsync();
+        }
+
+        private void BtnEditMovie_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Tag: Movie movie })
+                return;
+
+            var win = new AddMovieWindow(movie);
+            win.ShowDialog();
+            LoadRealDataAsync();
+        }
+
+        private async void BtnDeleteMovie_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Tag: Movie movie })
+                return;
+
+            var confirm = MessageBox.Show($"Удалить фильм «{movie.Title}»?", "Подтверждение",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                var resp = await ApiClient.Http.DeleteAsync($"api/movies/{movie.Id}");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var text = await resp.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Не удалось удалить фильм: {(int)resp.StatusCode} {resp.ReasonPhrase}\n{text}");
+                    return;
+                }
+
+                LoadRealDataAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка удаления: {ex.Message}");
+            }
         }
 
         private void BtnSchedule_Click(object sender, RoutedEventArgs e)
@@ -89,12 +122,12 @@ namespace CinemaManager
     public class Movie
     {
         public int Id { get; set; }
-        public string Title { get; set; }
-        public string Genre { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Genre { get; set; } = string.Empty;
         public int Duration { get; set; } // В API это число
-        public string AgeRating { get; set; }
-
-        // Этого поля нет в БД, оно нужно только для UI
-        public string Actions { get; set; }
+        public string AgeRating { get; set; } = string.Empty;
+        public string Director { get; set; } = string.Empty;
+        public bool IsComingSoon { get; set; }
     }
 }

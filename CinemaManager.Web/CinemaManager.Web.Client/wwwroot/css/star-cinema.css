@@ -143,7 +143,7 @@ body{
     transition: transform 0.3s, box-shadow 0.3s;
     margin-bottom: 15px;
     cursor: pointer;
-    overflow: hidden;
+    overflow: visible; /* allow stars to sit at sides */
 }
 
 .cm-poster-wrapper:hover{
@@ -155,22 +155,26 @@ body{
     content: "✦";
     position: absolute;
     color: var(--cm-accent);
-    font-size: 24px;
+    font-size: 26px;
     opacity: 0;
     transition: 0.3s;
+    pointer-events: none;
+    z-index: 2;
 }
 
 .cm-poster-wrapper:hover::before{
     opacity: 1;
-    top: -15px;
-    left: -15px;
+    top: 50%;
+    left: -18px;
+    transform: translateY(-50%);
     text-shadow: 0 0 10px var(--cm-accent);
 }
 
 .cm-poster-wrapper:hover::after{
     opacity: 1;
-    bottom: -15px;
-    right: -15px;
+    top: 50%;
+    right: -18px;
+    transform: translateY(-50%);
     text-shadow: 0 0 10px var(--cm-accent);
 }
 
@@ -180,6 +184,8 @@ body{
     object-fit: cover;
     display: block;
     filter: saturate(1.05) contrast(1.02);
+    border-radius: 12px;
+    z-index: 1;
 }
 
 .cm-movie-card h3{

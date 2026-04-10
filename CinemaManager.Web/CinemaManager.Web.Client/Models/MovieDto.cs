@@ -10,5 +10,6 @@ public sealed record MovieDto
     public string AgeRating { get; init; } = "";
     public string Director { get; init; } = "";
     public bool HasPoster { get; init; }
+    public bool IsComingSoon { get; init; }
 }
 

@@ -35,7 +35,7 @@
                         @foreach (var s in group)
                         {
                             <NavLink class="cm-hall-btn" href="@($"/booking/{s.Id}")">
-                                <div style="font-size:18px; font-weight:800">@s.StartTime:HH:mm</div>
+                                <div style="font-size:18px; font-weight:800">@s.StartTime.ToString("dd.MM.yyyy HH:mm")</div>
                                 <div class="cm-muted" style="font-size:12px">@s.Hall.Name • @s.Hall.Type</div>
                             </NavLink>
                         }

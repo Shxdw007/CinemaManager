@@ -19,6 +19,8 @@ namespace CinemaManager.API.Models
         public string AgeRating { get; set; } = string.Empty; // 0+, 6+, 12+, 16+, 18+
         public string Director { get; set; } = string.Empty;
 
+        public bool IsComingSoon { get; set; } = false;
+
         [JsonIgnore]
         public byte[]? PosterImage { get; set; }
 

@@ -10,6 +10,8 @@ namespace CinemaManager
 {
     public partial class HallsWindow : Window
     {
+        private int? _editingHallId;
+
         public HallsWindow()
         {
             InitializeComponent();
@@ -37,7 +39,8 @@ namespace CinemaManager
                         Name = h.Name,
                         Type = h.Type,
                         Capacity = $"{h.RowsCount * h.SeatsPerRow} мест ({h.RowsCount}x{h.SeatsPerRow})",
-                        Actions = "—"
+                        RowsCount = h.RowsCount,
+                        SeatsPerRow = h.SeatsPerRow
                     });
                 }
 
@@ -87,7 +90,17 @@ namespace CinemaManager
                     seatsPerRow
                 };
 
-                var response = await ApiClient.Http.PostAsJsonAsync("api/halls", payload);
+                var response = _editingHallId is null
+                    ? await ApiClient.Http.PostAsJsonAsync("api/halls", payload)
+                    : await ApiClient.Http.PutAsJsonAsync($"api/halls/{_editingHallId.Value}", new
+                    {
+                        id = _editingHallId.Value,
+                        name,
+                        type,
+                        rowsCount = rows,
+                        seatsPerRow
+                    });
+
                 if (!response.IsSuccessStatusCode)
                 {
                     var text = await response.Content.ReadAsStringAsync();
@@ -95,6 +108,7 @@ namespace CinemaManager
                     return;
                 }
 
+                _editingHallId = null;
                 HallNameTextBox.Text = "";
                 RowsCountTextBox.Text = "10";
                 SeatsPerRowTextBox.Text = "15";
@@ -106,6 +120,57 @@ namespace CinemaManager
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка сохранения зала: {ex.Message}");
+            }
+        }
+
+        private void BtnEditHall_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Tag: HallRow row })
+                return;
+
+            _editingHallId = row.Id;
+            HallNameTextBox.Text = row.Name;
+            RowsCountTextBox.Text = row.RowsCount.ToString();
+            SeatsPerRowTextBox.Text = row.SeatsPerRow.ToString();
+
+            // Simplified: set by contains
+            for (var i = 0; i < HallTypeComboBox.Items.Count; i++)
+            {
+                if (HallTypeComboBox.Items[i] is ComboBoxItem item &&
+                    item.Content?.ToString()?.Contains(row.Type, StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    HallTypeComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        private async void BtnDeleteHall_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Tag: HallRow row })
+                return;
+
+            var confirm = MessageBox.Show($"Удалить зал «{row.Name}»?", "Подтверждение",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                var resp = await ApiClient.Http.DeleteAsync($"api/halls/{row.Id}");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var text = await resp.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Не удалось удалить зал: {(int)resp.StatusCode} {resp.ReasonPhrase}\n{text}");
+                    return;
+                }
+
+                if (_editingHallId == row.Id) _editingHallId = null;
+                LoadHallsAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка удаления: {ex.Message}");
             }
         }
 
@@ -122,7 +187,8 @@ namespace CinemaManager
         public string Name { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
         public string Capacity { get; set; } = string.Empty;
-        public string Actions { get; set; } = string.Empty;
+        public int RowsCount { get; set; }
+        public int SeatsPerRow { get; set; }
     }
 
     public sealed class ApiHall
